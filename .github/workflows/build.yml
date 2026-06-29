@@ -1,0 +1,40 @@
+name: build
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "**.sh"
+      - Dockerfile
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: build
+    permissions:
+      # Give the default GITHUB_TOKEN write permission to commit and push the changed files back to the repository.
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        uses: ./
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1.${{ env.minor }}.${{ env.patch }}
+          path: /home/runner/work/_temp/_github_home/cloudflare-warp.deb
+      - name: Update
+        if: ${{ env.change }}
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Update hash and version
+      - name: Release
+        if: ${{ env.change }}
+        uses: softprops/action-gh-release@v1
+        with:
+          files: /home/runner/work/_temp/_github_home/cloudflare-warp.deb
+          body: "SHA256: ${{ env.hash }}"
+          tag_name: v1.${{ env.minor }}.${{ env.patch }}
+          generate_release_notes: false

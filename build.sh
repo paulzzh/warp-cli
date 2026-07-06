@@ -2,7 +2,7 @@ set -e
 cd /github/home
 echo Install dependencies.
 apt-get update > /dev/null 2>&1
-apt-get install -y curl gpg binutils zstd 2>&1
+apt-get install -y curl gpg binutils gzip 2>&1
 # Add cloudflare gpg key
 curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
 # Add this repo to your apt repositories
@@ -19,11 +19,11 @@ cp "$PKG" "$WORK/original.deb"
 
 cd "$WORK"
 
-# 解包 ar（保持 data.tar.zst 原样）
+# 解包 ar（保持 data.tar.gz 原样）
 ar x original.deb
 
 mkdir control
-tar --zstd -xf control.tar.zst -C control
+tar -zxf control.tar.gz -C control
 
 CONTROL=control/control
 
@@ -35,28 +35,28 @@ sed -Ei \
 # 固定时间戳
 export SOURCE_DATE_EPOCH=0
 
-find control -exec touch -d "@0" {} +
+find control -exec touch -h -d "@0" {} +
 
-# 重新生成 control.tar.zst
-rm control.tar.zst
+# 重新生成 control.tar.gz
+rm control.tar.gz
 
 tar \
     --sort=name \
     --owner=0 \
     --group=0 \
     --numeric-owner \
-    --mtime="@0" \
+    --mtime='@0' \
     --pax-option=delete=atime,delete=ctime \
     -C control \
     -cf - . \
-| zstd -19 --no-progress -q -o control.tar.zst
+| gzip -n > control.tar.gz
 
 # 使用 deterministic ar
 rm original.deb
 ar rcD cloudflare-warp.deb \
     debian-binary \
-    control.tar.zst \
-    data.tar.zst
+    control.tar.gz \
+    data.tar.gz
 
 hash=$(sha256sum cloudflare-warp.deb | awk '{print $1}')
 patch=$(cat /github/workspace/patch)

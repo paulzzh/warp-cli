@@ -11,7 +11,7 @@ echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] ht
 apt-get update && apt-get download cloudflare-warp
 
 PKG=$(echo cloudflare-warp*.deb)
-
+GH_HOME=$(pwd)
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
@@ -57,6 +57,9 @@ ar rcD cloudflare-warp.deb \
     debian-binary \
     control.tar.gz \
     data.tar.gz
+
+cp "cloudflare-warp.deb" "$GH_HOME/cloudflare-warp.deb"
+cd "$GH_HOME"
 
 hash=$(sha256sum cloudflare-warp.deb | awk '{print $1}')
 patch=$(cat /github/workspace/patch)

@@ -10,14 +10,53 @@ echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] ht
 # Install
 apt-get update && apt-get download cloudflare-warp
 
-mkdir -p work/pkg
-dpkg-deb -R cloudflare-warp*.deb work/pkg
-CONTROL=work/pkg/DEBIAN/control
+PKG=$(echo cloudflare-warp*.deb)
+
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+cp "$PKG" "$WORK/original.deb"
+
+cd "$WORK"
+
+# 解包 ar（保持 data.tar.zst 原样）
+ar x original.deb
+
+mkdir control
+tar --zstd -xf control.tar.zst -C control
+
+CONTROL=control/control
+
 sed -Ei \
 's/, *libayatana-appindicator3-1//g;
  s/, *libwebkit2gtk-4\.1-0//g' \
 "$CONTROL"
-dpkg-deb -b work/pkg cloudflare-warp.deb
+
+# 固定时间戳
+export SOURCE_DATE_EPOCH=0
+
+find control -exec touch -d "@0" {} +
+
+# 重新生成 control.tar.zst
+rm control.tar.zst
+
+tar \
+    --sort=name \
+    --owner=0 \
+    --group=0 \
+    --numeric-owner \
+    --mtime="@0" \
+    --pax-option=delete=atime,delete=ctime \
+    -C control \
+    -cf - . \
+| zstd -19 --no-progress -q -o control.tar.zst
+
+# 使用 deterministic ar
+rm original.deb
+ar rcD cloudflare-warp.deb \
+    debian-binary \
+    control.tar.zst \
+    data.tar.zst
 
 hash=$(sha256sum cloudflare-warp.deb | awk '{print $1}')
 patch=$(cat /github/workspace/patch)

@@ -2,7 +2,7 @@ set -e
 cd /github/home
 echo Install dependencies.
 apt-get update > /dev/null 2>&1
-apt-get install -y curl gpg 2>&1
+apt-get install -y curl gpg binutils zstd 2>&1
 # Add cloudflare gpg key
 curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
 # Add this repo to your apt repositories
